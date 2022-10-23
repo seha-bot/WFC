@@ -111,19 +111,9 @@ void start( int(*loop)() )
     glfwTerminate();
 }
 
-void pixel(int x, int y, unsigned char c)
+void pixel(int x, int y, u_int32_t c)
 {
-    if(c == 0)      glColor3ub(0, 0, 0);       //BLACK
-    else if(c == 1) glColor3ub(255, 255, 255); //WHITE
-    else if(c == 2) glColor3ub(255, 0, 0);     //RED
-    else if(c == 3) glColor3ub(0, 255, 0);     //GREEN
-    else if(c == 4) glColor3ub(0, 0, 255);     //BLUE
-    else if(c == 5) glColor3ub(255, 255, 0);   //YELLOW
-    else if(c == 6) glColor3ub(0, 255, 255);   //PLAVA
-    else if(c == 7) glColor3ub(255, 0, 255);   //PINK
-    else if(c == 8) glColor3ub(200, 200, 0);   //DARK YELLOW
-    else if(c == 9) glColor3ub(200, 0, 0);     //DARK RED
-
+    glColor3ub((c>>16)&0xFF, (c>>8)&0xFF, c&0xFF);
     // if(x < 0 || x >= 250) printf("ERROR X %d\n", x);
     // if(y < 0 || y >= 250) printf("ERROR Y %d\n", y);
     // if(x < 0 || x >= 250 || y < 0 || y >= 250) return;
@@ -131,7 +121,7 @@ void pixel(int x, int y, unsigned char c)
     glVertex2i((x<<1)+1, (y<<1)+1);
 }
 
-void line(int x1, int y1, int x2, int y2, int c)
+void line(int x1, int y1, int x2, int y2, u_int32_t c)
 {
     int c1 = abs(x2 - x1);
     int c2 = abs(y2 - y1);
