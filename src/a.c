@@ -19,59 +19,63 @@ void box(int x, int y, int w, int h, u_int32_t c)
 #define HW 125
 #define HH 125
 
-#define GD 25
+#define GD 50
 int grid[GD][GD] = { [0 ... GD-1] = {[0 ... GD-1] = -1} };
 
 #define TC 8
-int tiles[TC][9] = {
+#define TD 5
+int tiles[TC][TD*TD] = {
     {
-        0,0,0,
-        0,0,0,
-        0,0,0,
-    },
-    {
-        0,1,0,
-        1,1,1,
-        0,0,0,
-    },
-    {
-        0,1,0,
-        0,1,1,
-        0,1,0,
-    },
-    {
-        0,1,0,
-        1,1,0,
-        0,1,0,
-    },
-    {
-        0,0,0,
-        1,1,1,
-        0,1,0,
-    },
-    {
-        0,0,0,
-        1,1,1,
-        0,0,0,
-    },
-    {
-        0,1,0,
-        0,1,0,
-        0,1,0,
-    },
-    {
-        0,1,0,
-        1,1,1,
-        0,1,0,
+        0,0,0,0,0,
+        0,0,0,0,0,
+        0,0,0,0,0,
+        0,0,0,0,0,
+        0,0,0,0,0,
+    },{
+        0,0,1,0,0,
+        0,0,1,0,0,
+        0,0,1,0,0,
+        0,0,1,0,0,
+        0,0,1,0,0,
+    },{
+        0,0,0,0,0,
+        0,0,0,0,0,
+        1,1,1,1,1,
+        0,0,0,0,0,
+        0,0,0,0,0,
+    },{
+        0,0,1,0,0,
+        0,0,1,0,0,
+        1,1,1,0,0,
+        0,0,0,0,0,
+        0,0,0,0,0,
+    },{
+        0,0,1,0,0,
+        0,0,1,0,0,
+        0,0,1,1,1,
+        0,0,0,0,0,
+        0,0,0,0,0,
+    },{
+        0,0,0,0,0,
+        0,0,0,0,0,
+        0,0,1,1,1,
+        0,0,1,0,0,
+        0,0,1,0,0,
+    },{
+        0,0,0,0,0,
+        0,0,0,0,0,
+        1,1,1,0,0,
+        0,0,1,0,0,
+        0,0,1,0,0,
     },
 };
 void drawTile(int x, int y, int t)
 {
-    for(int i = 0; i < 3; i++)
+    for(int i = 0; i < TD; i++)
     {
-        for(int j = 0; j < 3; j++)
+        for(int j = 0; j < TD; j++)
         {
-            box(x*(HEIGHT/GD)+i*(WIDTH/GD)/3, y*(HEIGHT/GD)+j*(HEIGHT/GD)/3, (WIDTH/GD)/3, (HEIGHT/GD)/3, 0x00AA00 * tiles[t][i+(2-j)*3]);
+            box(x*(HEIGHT/GD)+i*(WIDTH/GD)/TD, y*(HEIGHT/GD)+j*(HEIGHT/GD)/TD, (WIDTH/GD)/TD, (HEIGHT/GD)/TD, 0x00AA00 * tiles[t][i+(TD-1-j)*TD]);
         }
     }
 }
@@ -99,9 +103,9 @@ void assertRules()
         for(int j = 0; j < TC; j++)
         {
             char can = 1;
-            for(int s = 0; s < 3; s++)
+            for(int s = 0; s < TD; s++)
             {
-                if(tiles[i][s] != tiles[j][6+s])
+                if(tiles[i][s] != tiles[j][TD*TD-TD+s])
                 {
                     can = 0;
                     break;
@@ -114,9 +118,9 @@ void assertRules()
             }
 
             can = 1;
-            for(int s = 1; s < 8; s+=3)
+            for(int s = 0; s < TD*TD; s+=TD)
             {
-                if(tiles[i][s-1] != tiles[j][s+1])
+                if(tiles[i][s] != tiles[j][s+TD-1])
                 {
                     can = 0;
                     break;
@@ -168,7 +172,7 @@ void place(int i, int j)
     if(nec_size(solutions)) grid[i][j] = solutions[rand() % nec_size(solutions)];
     else grid[i][j] = rand() % TC;
 
-    if(nec_size(possible) > 1) nec_free(solutions);
+    // if(nec_size(possible) > 1) nec_free(solutions);
 
     if(i - 1 >= 0) place(i-1, j);
     if(i + 1 < GD) place(i+1, j);
@@ -202,18 +206,6 @@ int main(int argc, char** argv)
 
     srand(time(0));
     assertRules();
-    // for(int i = 0; i < nec_size(tileRules); i++)
-    // {
-    //     printf("Left[");
-    //     for(int j = 0; j < nec_size(tileRules[i].left); j++) printf(j == nec_size(tileRules[i].left)-1 ? "%d" : "%d, ", tileRules[i].left[j]);
-    //     printf("]\nRight[");
-    //     for(int j = 0; j < nec_size(tileRules[i].right); j++) printf(j == nec_size(tileRules[i].right)-1 ? "%d" : "%d, ", tileRules[i].right[j]);
-    //     printf("]\nTop[");
-    //     for(int j = 0; j < nec_size(tileRules[i].top); j++) printf(j == nec_size(tileRules[i].top)-1 ? "%d" : "%d, ", tileRules[i].top[j]);
-    //     printf("]\nBottom[");
-    //     for(int j = 0; j < nec_size(tileRules[i].bottom); j++) printf(j == nec_size(tileRules[i].bottom)-1 ? "%d" : "%d, ", tileRules[i].bottom[j]);
-    //     printf("]\n\n");
-    // }
     place(0, 0);
     
     start(loop);
