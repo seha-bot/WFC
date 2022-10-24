@@ -19,37 +19,36 @@ void box(int x, int y, int w, int h, u_int32_t c)
 #define HW 125
 #define HH 125
 
-#define GD 50
+#define GD 25
 int grid[GD][GD] = { [0 ... GD-1] = {[0 ... GD-1] = -1} };
 
 #define TC 8
 int tiles[TC][9] = {
-    { //BLANK 0
+    {
         0,0,0,
         0,0,0,
         0,0,0,
     },
-    { //UP 1
+    {
         0,1,0,
         1,1,1,
         0,0,0,
     },
-    { //RIGHT 2
+    {
         0,1,0,
         0,1,1,
         0,1,0,
     },
-    { //LEFT 3
+    {
         0,1,0,
         1,1,0,
         0,1,0,
     },
-    { //DOWN 4
+    {
         0,0,0,
         1,1,1,
         0,1,0,
     },
-    
     {
         0,0,0,
         1,1,1,
@@ -83,7 +82,6 @@ struct tile
     int* right;
     int* top;
     int* bottom;
-    int id;
 };
 struct tile* tileRules = 0;
 
@@ -94,33 +92,40 @@ void assertRules()
         .right = 0,
         .top = 0,
         .bottom = 0,
-        .id = 0,
     };
     for(int i = 0; i < TC; i++) nec_push(tileRules, new);
     for(int i = 0; i < TC; i++)
     {
-        tileRules[i].id = i;
-        //1 - top
-        //3 - left
-        //5 - right
-        //7 - down
         for(int j = 0; j < TC; j++)
         {
-            if(tiles[i][1] == tiles[j][7])
+            char can = 1;
+            for(int s = 0; s < 3; s++)
+            {
+                if(tiles[i][s] != tiles[j][6+s])
+                {
+                    can = 0;
+                    break;
+                }
+            }
+            if(can)
             {
                 nec_push(tileRules[i].top, j);
+                nec_push(tileRules[j].bottom, i);
             }
-            if(tiles[i][3] == tiles[j][5])
+
+            can = 1;
+            for(int s = 1; s < 8; s+=3)
+            {
+                if(tiles[i][s-1] != tiles[j][s+1])
+                {
+                    can = 0;
+                    break;
+                }
+            }
+            if(can)
             {
                 nec_push(tileRules[i].left, j);
-            }
-            if(tiles[i][5] == tiles[j][3])
-            {
-                nec_push(tileRules[i].right, j);
-            }
-            if(tiles[i][7] == tiles[j][1])
-            {
-                nec_push(tileRules[i].bottom, j);
+                nec_push(tileRules[j].right, i);
             }
         }
     }
@@ -129,13 +134,6 @@ void assertRules()
 void place(int i, int j)
 {
     if(grid[i][j] != -1) return;
-    // if(i == 4 && j == 1)
-    // {
-    //     if(i - 1 >= 0) if(grid[i-1][j] != -1) { printf("LEFT "); for(int t = 0; t < nec_size(tileRules[grid[i-1][j]].right); t++) printf("%d ", tileRules[grid[i-1][j]].right[t]); printf("\n"); }
-    //     if(i + 1 < GD) if(grid[i+1][j] != -1) { printf("RIGHT "); for(int t = 0; t < nec_size(tileRules[grid[i+1][j]].left); t++) printf("%d ", tileRules[grid[i+1][j]].left[t]); printf("\n"); }
-    //     if(j - 1 >= 0) if(grid[i][j-1] != -1) { printf("BOTTOM "); for(int t = 0; t < nec_size(tileRules[grid[i][j-1]].top); t++) printf("%d ", tileRules[grid[i][j-1]].top[t]); printf("\n"); }
-    //     if(j + 1 < GD) if(grid[i][j+1] != -1) { printf("TOP "); for(int t = 0; t < nec_size(tileRules[grid[i][j+1]].bottom); t++) printf("%d ", tileRules[grid[i][j+1]].bottom[t]); printf("\n"); }
-    // }
     int** possible = 0;
     if(i - 1 >= 0) if(grid[i-1][j] != -1) nec_push(possible, tileRules[grid[i-1][j]].right);
     if(i + 1 < GD) if(grid[i+1][j] != -1) nec_push(possible, tileRules[grid[i+1][j]].left);
@@ -167,15 +165,10 @@ void place(int i, int j)
     }
     else if(nec_size(possible) == 1) solutions = possible[0];
 
-    for(int i = 0; i < nec_size(solutions); i++)
-    {
-        if(i == 0) printf("FOR(%d %d) = ", i, j);
-        printf("%d ", solutions[i]);
-        if(i == nec_size(solutions)-1) printf("\n");
-    }
-    if(nec_size(solutions) > 1) grid[i][j] = solutions[rand() % nec_size(solutions)];
-    else if(nec_size(solutions) == 1) grid[i][j] = solutions[0];
+    if(nec_size(solutions)) grid[i][j] = solutions[rand() % nec_size(solutions)];
     else grid[i][j] = rand() % TC;
+
+    if(nec_size(possible) > 1) nec_free(solutions);
 
     if(i - 1 >= 0) place(i-1, j);
     if(i + 1 < GD) place(i+1, j);
@@ -192,6 +185,11 @@ int loop()
             drawTile(i, j, grid[i][j]);
         }
     }
+    if(getKeyDown(GLFW_KEY_ENTER))
+    {
+        for(int i = 0; i < GD; i++) for(int j = 0; j < GD; j++) grid[i][j] = -1;
+        place(0, 0);
+    }
     return 0;
 }
 
@@ -202,8 +200,8 @@ int main(int argc, char** argv)
     if(!window) return 1;
     glPointSize(2.0);
 
+    srand(time(0));
     assertRules();
-
     // for(int i = 0; i < nec_size(tileRules); i++)
     // {
     //     printf("Left[");
@@ -216,18 +214,7 @@ int main(int argc, char** argv)
     //     for(int j = 0; j < nec_size(tileRules[i].bottom); j++) printf(j == nec_size(tileRules[i].bottom)-1 ? "%d" : "%d, ", tileRules[i].bottom[j]);
     //     printf("]\n\n");
     // }
-
-    srand(time(0));
-
     place(0, 0);
-    // for(int i = 0; i < GD; i++)
-    // {
-    //     for(int j = 0; j < GD; j++)
-    //     {
-    //         printf("%d ", grid[j][GD-1-i]);
-    //     }
-    //     printf("\n");
-    // }
     
     start(loop);
     return 0;
