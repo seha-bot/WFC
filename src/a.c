@@ -3,214 +3,146 @@
 #include<time.h>
 #include<assert.h>
 
-void box(int x, int y, int w, int h, u_int32_t c)
+struct dl
 {
-    for(int i = x; i <= x+w; i++)
-    {
-        for(int j = y; j <= y+h; j++)
-        {
-            pixel(i, j, c);
-        }
-    }
-}
-
-#define WIDTH 250
-#define HEIGHT 250
-#define HW 125
-#define HH 125
-
-#define GD 10
-int grid[GD][GD] = { [0 ... GD-1] = {[0 ... GD-1] = -1} };
-
-#define TC 16
-#define TD 4
-int tiles[TC][TD*TD];
-
-int sample[] = {
-    0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,
-    0,0,0,1,0,0,0,0,0,1,1,1,1,1,1,0,
-    0,1,1,1,1,1,0,0,0,1,1,1,1,1,1,0,
-    0,1,1,1,1,1,0,0,0,1,1,1,1,1,1,0,
-    0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,
-    1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,
-    0,1,1,1,1,1,0,0,0,1,1,1,1,1,1,0,
-    0,0,1,0,0,0,0,0,0,1,1,1,1,1,1,0,
-    0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,
-    0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,
-    0,0,1,1,1,1,1,1,0,0,1,1,1,1,0,0,
-    1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,
-    0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,
-    0,0,1,1,1,1,1,1,0,0,1,1,1,1,0,0,
-    0,0,1,1,1,1,1,1,0,0,0,0,1,0,0,0,
-    0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,
+    int v;
+    struct dl* next;
 };
+typedef struct dl dl;
 
-void genTiles()
+dl* sud[9][9] = { [0 ... 9-1] = { [0 ... 9-1] = 0 } };
+
+dl* dl_remove(dl* a, int v)
 {
-    int sector[16];
-    int id = 0;
-    for(int i = 0; i <= 16*16-16*3; i++)
+    if(!a) return 0;
+    if(a->v == v) return a->next;
+    dl* s = a;
+    while(a->next)
     {
-        if(i && i % 16 == 0)
+        if(a->next->v == v)
         {
-            i += 16*3;
+            a->next = a->next->next;
+            return s;
         }
-        if(i && i % 4 == 0)
-        {
-            //SECTOR FULL
-            for(int i = 0; i < 16; i++)
-            {
-                tiles[id][i] = sector[i];
-            }
-            id++;
-        }
-        sector[i%4+4*0] = sample[i+16*0];
-        sector[i%4+4*1] = sample[i+16*1];
-        sector[i%4+4*2] = sample[i+16*2];
-        sector[i%4+4*3] = sample[i+16*3];
+        a = a->next;
     }
+    return s;
 }
 
-void drawTile(int x, int y, int t)
+int dl_size(dl* a)
 {
-    for(int i = 0; i < TD; i++)
+    if(!a) return 0;
+    int s = 0;
+    while(a->next)
     {
-        for(int j = 0; j < TD; j++)
-        {
-            box(x*(HEIGHT/GD)+i*(WIDTH/GD)/TD, y*(HEIGHT/GD)+j*(HEIGHT/GD)/TD, (WIDTH/GD)/TD, (HEIGHT/GD)/TD, 0xAAAAAA * tiles[t][i+(TD-1-j)*TD]);
-        }
+        s++;
+        a = a->next;
     }
+    return s + 1;
 }
 
-struct tile
+void affect(int x, int y, int v)
 {
-    int* left;
-    int* right;
-    int* top;
-    int* bottom;
-};
-struct tile* tileRules = 0;
+    if(!sud[x][y]->next) return;
+    sud[x][y]->next = 0;
+    sud[x][y]->v = v;
 
-void assertRules()
-{
-    struct tile new = {
-        .left = 0,
-        .right = 0,
-        .top = 0,
-        .bottom = 0,
-    };
-    for(int i = 0; i < TC; i++) nec_push(tileRules, new);
-    for(int i = 0; i < TC; i++)
+    //1) REMOVE LOCAL GRID ENTROPY
+    int sX = (x/3)*3;
+    int sY = (y/3)*3;
+    for(int i = 0; i < 3; i++)
     {
-        for(int j = 0; j < TC; j++)
+        for(int j = 0; j < 3; j++)
         {
-            char can = 1;
-            for(int s = 0; s < TD; s++)
-            {
-                if(tiles[i][s] != tiles[j][TD*TD-TD+s])
-                {
-                    can = 0;
-                    break;
-                }
-            }
-            if(can)
-            {
-                nec_push(tileRules[i].top, j);
-                nec_push(tileRules[j].bottom, i);
-            }
+            if(sX+i == x && sY+j == y) continue;
+            sud[sX+i][sY+j] = dl_remove(sud[sX+i][sY+j], v);
+        }
+    }
 
-            can = 1;
-            for(int s = 0; s < TD*TD; s+=TD)
+    //2) REMOVE AXIS ENTROPY
+    for(int i = 0; i < 9; i++)
+    {
+        if(i != x) sud[i][y] = dl_remove(sud[i][y], v);
+        if(i != y) sud[x][i] = dl_remove(sud[x][i], v);
+    }
+
+    //3) FIND LEAST ENTROPY
+    int idX = -1;
+    int idY = -1;
+    int minV = 10;
+    for(int i = 0; i < 9; i++)
+    {
+        for(int j = 0; j < 9; j++)
+        {
+            int s = dl_size(sud[i][j]);
+            if(s < minV && s != 1)
             {
-                if(tiles[i][s] != tiles[j][s+TD-1])
-                {
-                    can = 0;
-                    break;
-                }
-            }
-            if(can)
-            {
-                nec_push(tileRules[i].left, j);
-                nec_push(tileRules[j].right, i);
+                minV = s;
+                idX = i;
+                idY = j;
             }
         }
     }
-}
 
-void place(int i, int j)
-{
-    if(grid[i][j] != -1) return;
-    int** possible = 0;
-    if(i - 1 >= 0) if(grid[i-1][j] != -1) nec_push(possible, tileRules[grid[i-1][j]].right);
-    if(i + 1 < GD) if(grid[i+1][j] != -1) nec_push(possible, tileRules[grid[i+1][j]].left);
-    if(j - 1 >= 0) if(grid[i][j-1] != -1) nec_push(possible, tileRules[grid[i][j-1]].top);
-    if(j + 1 < GD) if(grid[i][j+1] != -1) nec_push(possible, tileRules[grid[i][j+1]].bottom);
-    int* solutions = 0;
-    if(nec_size(possible) > 1)
+    if(idX == -1)
     {
-        for(int s = 0; s < nec_size(possible); s++)
+        printf("ERROR\n");
+        return;
+        // exit(1);
+    }
+
+    for(int i = 0; i < 9; i++)
+    {
+        for(int j = 0; j < 9; j++)
         {
-            for(int c = 0; c < nec_size(possible[s]); c++)
-            {
-                for(int s1 = 0; s1 < nec_size(possible); s1++)
-                {
-                    for(int c1 = 0; c1 < nec_size(possible[s1]); c1++)
-                    {
-                        if(s1 == s && c1 == c) continue;
-                        if(possible[s][c] == possible[s1][c1])
-                        {
-                            if(!nec_contains(solutions, possible[s][c]))
-                            {
-                                nec_push(solutions, possible[s][c]);
-                            }
-                        }
-                    }
-                }
-            }
+            if(sud[i][j]->next) printf("- ");
+            else printf("%d ", sud[i][j]->v);
         }
+        printf("\n");
     }
-    else if(nec_size(possible) == 1) solutions = possible[0];
+    printf("\n");
 
-    if(nec_size(solutions)) grid[i][j] = solutions[rand() % nec_size(solutions)];
-    else grid[i][j] = rand() % TC;
-
-    // if(nec_size(possible) > 1) nec_free(solutions);
-
-    if(i - 1 >= 0) place(i-1, j);
-    if(i + 1 < GD) place(i+1, j);
-    if(j - 1 >= 0) place(i, j-1);
-    if(j + 1 < GD) place(i, j+1);
-}
-
-int loop()
-{
-    for(int i = 0; i < GD; i++)
-    {
-        for(int j = 0; j < GD; j++)
-        {
-            drawTile(i, j, grid[i][j]);
-        }
-    }
-    if(getKeyDown(GLFW_KEY_ENTER))
-    {
-        for(int i = 0; i < GD; i++) for(int j = 0; j < GD; j++) grid[i][j] = -1;
-        place(0, 0);
-    }
-    return 0;
+    affect(idX, idY, sud[idX][idY]->v);
 }
 
 int main(int argc, char** argv)
 {
-    assert(WIDTH*HEIGHT % GD == 0);
-    createWindow("Window", WIDTH<<1, HEIGHT<<1);
-    if(!window) return 1;
-    glPointSize(2.0);
+    for(int i = 0; i < 9; i++)
+    {
+        for(int j = 0; j < 9; j++)
+        {
+            dl* mem = malloc(sizeof(dl) * 9);
+            for(int j = 0; j < 9; j++)
+            {
+                mem[j].v = j+1;
+                if(j != 8) mem[j].next = &mem[j+1];
+            }
+            sud[i][j] = mem;
+        }
+    }
+    affect(0, 0, 1);
 
-    srand(time(0));
-    genTiles();
-    assertRules();
-    place(0, 0);
-    
-    start(loop);
+    for(int i = 0; i < 9; i++)
+    {
+        for(int j = 0; j < 9; j++)
+        {
+            printf("%d ", sud[i][j]->v);
+            // printf("%d ", dl_size(sud[i][j]) + 0);
+        }
+        printf("\n");
+    }
+
+    // affect(0, 1, 1);
+    // affect(0, 2, 1);
+
+    // for(int i = 0; i < 9; i++)
+    // {
+    //     for(int j = 0; j < 9; j++)
+    //     {
+    //         printf("%d ", sud[j+i*9]);
+    //     }
+    //     printf("\n");
+    // }
+
     return 0;
 }
